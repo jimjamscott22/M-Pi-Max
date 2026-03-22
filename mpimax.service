@@ -1,0 +1,17 @@
+[Unit]
+Description=M-Pi-Max System Monitor
+# Wait until the network is up before starting
+After=network.target
+
+[Service]
+# Run as the current user, not root
+User=jimjamscozz22
+WorkingDirectory=/home/jimjamscozz22/Desktop/GitHub/repo/M-Pi-Max
+ExecStart=uvicorn main:app --host 0.0.0.0 --port 8000
+# Restart automatically if it crashes
+Restart=always
+RestartSec=5
+
+[Install]
+# Start this service when the system reaches the normal multi-user state
+WantedBy=multi-user.target
