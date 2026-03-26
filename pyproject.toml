@@ -1,0 +1,17 @@
+[project]
+name = "m-pi-max"
+version = "0.1.0"
+description = "A simple system monitor web dashboard for Raspberry Pi 5"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "psutil",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []
