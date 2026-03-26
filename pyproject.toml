@@ -8,10 +8,3 @@ dependencies = [
     "uvicorn[standard]",
     "psutil",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.uv]
-dev-dependencies = []

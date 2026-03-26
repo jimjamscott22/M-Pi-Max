@@ -1,8 +1,13 @@
 # M-Pi-Max
 
-A simple, readable system monitor web dashboard for Raspberry Pi 5.
+A simple, readable system monitor for Raspberry Pi 5 and Linux laptops.
 
-Displays real-time CPU usage/temp/frequency, RAM/swap, disk I/O, network throughput, uptime, and load average — served over your LAN via FastAPI.
+Supports two run modes from the same codebase:
+
+- **Web mode** (FastAPI): open from any device on your LAN
+- **Desktop mode** (Tkinter): local GUI window on Linux/Windows with a display session
+
+Both modes show real-time CPU usage/temp/frequency, RAM/swap, disk I/O, network throughput, uptime, and load average.
 
 ## Requirements
 
@@ -20,15 +25,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/youruser/M-Pi-Max.git
 cd M-Pi-Max
 
-# Run directly — uv handles the venv and dependencies automatically
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+# Web mode (LAN dashboard)
+uv run python main.py --mode web --host 0.0.0.0 --port 8000
+
+# Desktop mode (Tkinter GUI)
+uv run python main.py --mode desktop
 ```
 
 ## Running with pip
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Web mode (LAN dashboard)
+python main.py --mode web --host 0.0.0.0 --port 8000
+
+# Desktop mode (Tkinter GUI)
+python main.py --mode desktop
 ```
 
 ## Accessing the Dashboard
@@ -42,6 +55,8 @@ http://raspberrypi.local:8000
 
 ## Running as a systemd Service
 
+For headless Raspberry Pi, use **web mode** in systemd.
+
 Copy the included service file and enable it:
 
 ```bash
@@ -49,6 +64,12 @@ sudo cp mpimax.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now mpimax
 ```
+
+## Suggested Setup by Device
+
+- **Ubuntu laptop**: `--mode desktop` for local usage, or `--mode web` when you want browser access from other devices
+- **Desktop Raspberry Pi**: either mode works
+- **Headless Raspberry Pi**: `--mode web` only (no display server for Tkinter)
 
 ## Pi-Specific Stats
 
