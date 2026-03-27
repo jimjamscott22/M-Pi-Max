@@ -44,6 +44,25 @@ python main.py --mode web --host 0.0.0.0 --port 8000
 python main.py --mode desktop
 ```
 
+## Quick Launcher Menu
+
+Use the launcher to pick a mode from a menu:
+
+```bash
+# With uv
+uv run python launch.py
+
+# With pip
+python launch.py
+```
+
+You can also bypass the menu:
+
+```bash
+python launch.py --mode web --host 0.0.0.0 --port 8000
+python launch.py --mode desktop --refresh-ms 2000
+```
+
 ## Accessing the Dashboard
 
 Open a browser and navigate to:
