@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="18" fill="#2d0a0a"/>
+  <!-- Raspberry Pi raspberry shape hint -->
+  <circle cx="50" cy="45" r="26" fill="#c0392b" opacity="0.15"/>
+  <!-- Pi symbol -->
+  <text x="14" y="72" font-family="serif" font-size="66" font-weight="bold" fill="#e53e3e">π</text>
+  <!-- Max indicator -->
+  <rect x="60" y="18" width="22" height="10" rx="4" fill="#e53e3e"/>
+  <text x="63" y="27" font-family="sans-serif" font-size="9" font-weight="bold" fill="white">MAX</text>
+</svg>
