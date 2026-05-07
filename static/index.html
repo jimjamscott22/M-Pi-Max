@@ -10,15 +10,15 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: monospace;
-      background: #0f0f0f;
-      color: #e0e0e0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #2e3440; /* Nord0 */
+      color: #d8dee9; /* Nord4 */
       padding: 1.5rem;
     }
 
     h1 {
       font-size: 1.4rem;
-      color: #a78bfa;
+      color: #88c0d0; /* Nord8 */
       margin-bottom: 1.5rem;
       letter-spacing: 0.05em;
     }
@@ -30,34 +30,44 @@
     }
 
     .card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
+      background: #3b4252; /* Nord1 */
+      border: 1px solid #4c566a; /* Nord3 */
       border-radius: 8px;
       padding: 1rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      border-color: #434c5e; /* Nord2 */
     }
 
     .card h2 {
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: #888;
+      color: #d8dee9; /* Nord4 */
       margin-bottom: 0.75rem;
     }
 
     .stat {
+      font-family: monospace;
+      font-variant-numeric: tabular-nums;
       font-size: 1.6rem;
       font-weight: bold;
-      color: #a78bfa;
+      color: #a3be8c; /* Nord14 */
     }
 
     .sub {
+      font-family: monospace;
       font-size: 0.8rem;
-      color: #666;
+      color: #93a1a1;
       margin-top: 0.25rem;
     }
 
     .bar-wrap {
-      background: #2a2a2a;
+      background: #434c5e; /* Nord2 */
       border-radius: 4px;
       height: 8px;
       margin-top: 0.5rem;
@@ -67,19 +77,19 @@
     .bar {
       height: 100%;
       border-radius: 4px;
-      background: #a78bfa;
+      background: #88c0d0; /* Nord8 */
       transition: width 0.4s ease;
     }
 
-    .bar.hot { background: #f87171; }
-    .bar.warm { background: #fb923c; }
+    .bar.hot { background: #bf616a; /* Nord11 */ }
+    .bar.warm { background: #ebcb8b; /* Nord13 */ }
 
     canvas { margin-top: 0.75rem; }
 
     #uptime-card .stat { font-size: 1.1rem; }
 
-    .throttle-ok  { color: #4ade80; }
-    .throttle-bad { color: #f87171; }
+    .throttle-ok  { color: #a3be8c; } /* Nord14 */
+    .throttle-bad { color: #bf616a; } /* Nord11 */
   </style>
 </head>
 <body>
@@ -99,14 +109,14 @@
       <h2>CPU Temperature</h2>
       <div class="stat" id="cpu-temp">--</div>
       <div class="sub" id="cpu-throttle">--</div>
-      <div class="bar-wrap"><div class="bar" id="temp-bar" style="width:0%"></div></div>
+      <canvas id="temp-chart" height="80"></canvas>
     </div>
 
     <div class="card">
       <h2>Memory</h2>
       <div class="stat" id="mem-percent">--</div>
       <div class="sub" id="mem-detail">--</div>
-      <div class="bar-wrap"><div class="bar" id="mem-bar" style="width:0%"></div></div>
+      <canvas id="mem-chart" height="80"></canvas>
     </div>
 
     <div class="card">
@@ -140,35 +150,43 @@
   </div>
 
   <script>
-    // --- Chart.js rolling history for CPU ---
+    // --- Chart.js rolling history ---
     // We keep the last 30 data points (30 seconds at 1s polling)
     const MAX_POINTS = 30;
     const labels = Array(MAX_POINTS).fill("");
     const cpuHistory = Array(MAX_POINTS).fill(0);
+    const memHistory = Array(MAX_POINTS).fill(0);
+    const tempHistory = Array(MAX_POINTS).fill(0);
 
-    const cpuChart = new Chart(document.getElementById("cpu-chart"), {
+    const chartOptions = (max = 100) => ({
+      animation: false,
+      scales: {
+        x: { display: false },
+        y: { min: 0, max, display: false }
+      },
+      plugins: { legend: { display: false } }
+    });
+
+    const createChart = (id, data, color, bgColor, max = 100) => new Chart(document.getElementById(id), {
       type: "line",
       data: {
         labels,
         datasets: [{
-          data: cpuHistory,
-          borderColor: "#a78bfa",
-          backgroundColor: "rgba(167,139,250,0.1)",
+          data,
+          borderColor: color,
+          backgroundColor: bgColor,
           borderWidth: 1.5,
           pointRadius: 0,
           fill: true,
           tension: 0.3,
         }]
       },
-      options: {
-        animation: false,
-        scales: {
-          x: { display: false },
-          y: { min: 0, max: 100, display: false }
-        },
-        plugins: { legend: { display: false } }
-      }
+      options: chartOptions(max)
     });
+
+    const cpuChart = createChart("cpu-chart", cpuHistory, "#88c0d0", "rgba(136, 192, 208, 0.1)");
+    const memChart = createChart("mem-chart", memHistory, "#5e81ac", "rgba(94, 129, 172, 0.1)");
+    const tempChart = createChart("temp-chart", tempHistory, "#bf616a", "rgba(191, 97, 106, 0.1)", 100); // Max temp 100C usually
 
     // --- Helpers ---
 
@@ -205,9 +223,9 @@
         const temp = d.cpu.temp_c;
         if (temp !== null) {
           document.getElementById("cpu-temp").textContent = temp + " °C";
-          // Map 30–85°C to 0–100% for the bar
-          const tempPct = Math.min(100, Math.max(0, ((temp - 30) / 55) * 100));
-          setBar("temp-bar", tempPct, [60, 80]);
+          tempHistory.shift();
+          tempHistory.push(temp);
+          tempChart.update();
         }
 
         // Throttle — 0x0 means all clear
@@ -227,7 +245,9 @@
         document.getElementById("mem-percent").textContent = d.memory.percent + "%";
         document.getElementById("mem-detail").textContent =
           `${d.memory.used_gb} / ${d.memory.total_gb} GB`;
-        setBar("mem-bar", d.memory.percent);
+        memHistory.shift();
+        memHistory.push(d.memory.percent);
+        memChart.update();
 
         // Swap
         document.getElementById("swap-percent").textContent = d.swap.percent + "%";

@@ -120,11 +120,27 @@ def run_desktop(refresh_ms: int = 2000) -> None:
     root = tk.Tk()
     root.title("M-Pi-Max Desktop")
     root.geometry("760x440")
+    
+    # Apply Nord Theme
+    bg_color = "#2e3440" # Nord0
+    fg_color = "#d8dee9" # Nord4
+    accent_color = "#88c0d0" # Nord8
+    value_color = "#a3be8c" # Nord14
+    
+    root.configure(bg=bg_color)
+
+    style = ttk.Style()
+    style.theme_use('clam')
+    style.configure("TFrame", background=bg_color)
+    style.configure("TLabel", background=bg_color, foreground=fg_color)
+    style.configure("Title.TLabel", font=("TkDefaultFont", 16, "bold"), foreground=accent_color)
+    style.configure("Header.TLabel", font=("TkDefaultFont", 10, "bold"), foreground=fg_color)
+    style.configure("Value.TLabel", font=("TkFixedFont", 10), foreground=value_color)
 
     frame = ttk.Frame(root, padding=16)
     frame.pack(fill="both", expand=True)
 
-    title = ttk.Label(frame, text="M-Pi-Max Desktop Monitor", font=("TkDefaultFont", 16, "bold"))
+    title = ttk.Label(frame, text="M-Pi-Max Desktop Monitor", style="Title.TLabel")
     title.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
     labels: dict[str, ttk.Label] = {}
@@ -144,13 +160,13 @@ def run_desktop(refresh_ms: int = 2000) -> None:
     ]
 
     for index, (name, key) in enumerate(rows, start=1):
-        label_name = ttk.Label(frame, text=f"{name}:", font=("TkDefaultFont", 10, "bold"))
+        label_name = ttk.Label(frame, text=f"{name}:", style="Header.TLabel")
         label_name.grid(row=index, column=0, sticky="nw", padx=(0, 12), pady=3)
-        value_label = ttk.Label(frame, text="--", justify="left", wraplength=520)
+        value_label = ttk.Label(frame, text="--", justify="left", wraplength=520, style="Value.TLabel")
         value_label.grid(row=index, column=1, sticky="nw", pady=3)
         labels[key] = value_label
 
-    status = ttk.Label(frame, text="Refreshing...", foreground="#555555")
+    status = ttk.Label(frame, text="Refreshing...", foreground="#4c566a") # Nord3
     status.grid(row=len(rows) + 1, column=0, columnspan=2, sticky="w", pady=(14, 0))
 
     def refresh() -> None:
@@ -199,9 +215,9 @@ def run_desktop(refresh_ms: int = 2000) -> None:
 
             labels["load_avg"].config(text=", ".join(str(x) for x in stats["system"]["load_avg"]))
             labels["uptime"].config(text=stats["system"]["uptime"])
-            status.config(text=f"Last update: {time.strftime('%H:%M:%S')}", foreground="#2E7D32")
+            status.config(text=f"Last update: {time.strftime('%H:%M:%S')}", foreground="#a3be8c") # Nord14 green
         except Exception as exc:  # Keep UI alive even if one sample fails.
-            status.config(text=f"Update failed: {exc}", foreground="#B00020")
+            status.config(text=f"Update failed: {exc}", foreground="#bf616a") # Nord11 red
         finally:
             root.after(refresh_ms, refresh)
 
