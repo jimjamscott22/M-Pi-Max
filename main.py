@@ -117,15 +117,78 @@ def run_desktop(refresh_ms: int = 2000) -> None:
             "No graphical session detected. Use --mode web on headless devices."
         )
 
+    # --- Custom Progress Bar Widget ---
+    class ProgressBar(tk.Canvas):
+        """A custom Canvas-based progress bar with percentage and absolute value."""
+        def __init__(self, parent, width=200, height=24, **kwargs):
+            super().__init__(parent, width=width, height=height, bg="#3b4252", bd=0, highlightthickness=0, **kwargs)
+            self.width = width
+            self.height = height
+            self.percent = 0
+            self.absolute_text = ""
+            self.bind("<Configure>", self._on_configure)
+
+        def set_value(self, percent: float, absolute_text: str = ""):
+            """Update the progress bar value and optional absolute text."""
+            self.percent = min(100, max(0, percent))
+            self.absolute_text = absolute_text
+            self.draw()
+
+        def _on_configure(self, event):
+            """Redraw when widget is resized."""
+            self.width = event.width
+            self.height = event.height
+            self.draw()
+
+        def draw(self):
+            """Render the progress bar."""
+            self.delete("all")
+            
+            # Determine color based on percentage
+            if self.percent >= 85:
+                bar_color = "#bf616a"  # Nord11 red
+            elif self.percent >= 70:
+                bar_color = "#ebcb8b"  # Nord13 yellow
+            else:
+                bar_color = "#88c0d0"  # Nord8 blue
+            
+            # Draw background
+            self.create_rectangle(2, 2, self.width - 2, self.height - 2, fill="#2a2a2a", outline="#4c566a", width=1)
+            
+            # Draw filled bar
+            bar_width = (self.percent / 100.0) * (self.width - 4)
+            if bar_width > 0:
+                self.create_rectangle(2, 2, 2 + bar_width, self.height - 2, fill=bar_color, outline="")
+            
+            # Draw percentage text (centered)
+            percent_text = f"{self.percent:.0f}%"
+            self.create_text(
+                self.width / 2, self.height / 2,
+                text=percent_text,
+                font=("TkFixedFont", 9, "bold"),
+                fill="#d8dee9",
+                anchor="center"
+            )
+            
+            # Draw absolute value text (right-aligned) if provided
+            if self.absolute_text:
+                self.create_text(
+                    self.width - 6, self.height / 2,
+                    text=self.absolute_text,
+                    font=("TkFixedFont", 7),
+                    fill="#93a1a1",
+                    anchor="e"
+                )
+
     root = tk.Tk()
     root.title("M-Pi-Max Desktop")
-    root.geometry("760x440")
+    root.geometry("900x650")
     
     # Apply Nord Theme
-    bg_color = "#2e3440" # Nord0
-    fg_color = "#d8dee9" # Nord4
-    accent_color = "#88c0d0" # Nord8
-    value_color = "#a3be8c" # Nord14
+    bg_color = "#2e3440"  # Nord0
+    card_bg = "#3b4252"   # Nord1
+    fg_color = "#d8dee9"  # Nord4
+    accent_color = "#88c0d0"  # Nord8
     
     root.configure(bg=bg_color)
 
@@ -134,90 +197,133 @@ def run_desktop(refresh_ms: int = 2000) -> None:
     style.configure("TFrame", background=bg_color)
     style.configure("TLabel", background=bg_color, foreground=fg_color)
     style.configure("Title.TLabel", font=("TkDefaultFont", 16, "bold"), foreground=accent_color)
-    style.configure("Header.TLabel", font=("TkDefaultFont", 10, "bold"), foreground=fg_color)
-    style.configure("Value.TLabel", font=("TkFixedFont", 10), foreground=value_color)
+    style.configure("CardTitle.TLabel", font=("TkDefaultFont", 11, "bold"), foreground=accent_color)
+    style.configure("Header.TLabel", font=("TkDefaultFont", 9), foreground=fg_color)
+    style.configure("Value.TLabel", font=("TkFixedFont", 9), foreground="#a3be8c")
+    style.configure("Card.TLabelframe", background=card_bg, foreground=fg_color)
+    style.configure("Card.TLabelframe.Label", background=card_bg, foreground=accent_color, font=("TkDefaultFont", 10, "bold"))
 
-    frame = ttk.Frame(root, padding=16)
-    frame.pack(fill="both", expand=True)
+    # Main scrollable frame
+    canvas = tk.Canvas(root, bg=bg_color, bd=0, highlightthickness=0)
+    scrollbar = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
+    scrollable_frame = ttk.Frame(canvas)
+    
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
 
-    title = ttk.Label(frame, text="M-Pi-Max Desktop Monitor", style="Title.TLabel")
-    title.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+    title = ttk.Label(scrollable_frame, text="M-Pi-Max Desktop Monitor", style="Title.TLabel")
+    title.pack(pady=(10, 15), padx=15)
 
-    labels: dict[str, ttk.Label] = {}
-    rows = [
-        ("CPU Usage", "cpu_percent"),
-        ("CPU Frequency", "cpu_freq"),
-        ("CPU Temperature", "cpu_temp"),
-        ("CPU Throttle", "cpu_throttle"),
-        ("Per-Core Usage", "per_core"),
-        ("RAM", "ram"),
-        ("Swap", "swap"),
-        ("Disk", "disk"),
-        ("Disk I/O", "disk_io"),
-        ("Network", "network"),
-        ("Load Avg", "load_avg"),
-        ("Uptime", "uptime"),
-    ]
+    # --- CPU Card ---
+    cpu_card = ttk.LabelFrame(scrollable_frame, text="CPU", style="Card.TLabelframe", padding=10)
+    cpu_card.pack(fill="x", padx=15, pady=(0, 10))
 
-    for index, (name, key) in enumerate(rows, start=1):
-        label_name = ttk.Label(frame, text=f"{name}:", style="Header.TLabel")
-        label_name.grid(row=index, column=0, sticky="nw", padx=(0, 12), pady=3)
-        value_label = ttk.Label(frame, text="--", justify="left", wraplength=520, style="Value.TLabel")
-        value_label.grid(row=index, column=1, sticky="nw", pady=3)
-        labels[key] = value_label
+    cpu_usage_frame = ttk.Frame(cpu_card)
+    cpu_usage_frame.pack(fill="x", pady=5)
+    ttk.Label(cpu_usage_frame, text="Usage:", style="Header.TLabel").pack(side="left", padx=(0, 8))
+    cpu_bar = ProgressBar(cpu_usage_frame, width=200, height=22)
+    cpu_bar.pack(side="left", padx=(0, 10))
 
-    status = ttk.Label(frame, text="Refreshing...", foreground="#4c566a") # Nord3
-    status.grid(row=len(rows) + 1, column=0, columnspan=2, sticky="w", pady=(14, 0))
+    cpu_freq_label = ttk.Label(cpu_card, text="Frequency: --", style="Value.TLabel")
+    cpu_freq_label.pack(anchor="w", pady=2)
+    cpu_temp_label = ttk.Label(cpu_card, text="Temperature: --", style="Value.TLabel")
+    cpu_temp_label.pack(anchor="w", pady=2)
+    cpu_throttle_label = ttk.Label(cpu_card, text="Throttle: --", style="Value.TLabel")
+    cpu_throttle_label.pack(anchor="w", pady=2)
+    cpu_percore_label = ttk.Label(cpu_card, text="Per-Core: --", style="Value.TLabel")
+    cpu_percore_label.pack(anchor="w", pady=2)
+
+    # --- Memory Card ---
+    mem_card = ttk.LabelFrame(scrollable_frame, text="Memory", style="Card.TLabelframe", padding=10)
+    mem_card.pack(fill="x", padx=15, pady=(0, 10))
+
+    ram_frame = ttk.Frame(mem_card)
+    ram_frame.pack(fill="x", pady=5)
+    ttk.Label(ram_frame, text="RAM:", style="Header.TLabel").pack(side="left", padx=(0, 8))
+    ram_bar = ProgressBar(ram_frame, width=200, height=22)
+    ram_bar.pack(side="left", padx=(0, 10))
+
+    swap_frame = ttk.Frame(mem_card)
+    swap_frame.pack(fill="x", pady=5)
+    ttk.Label(swap_frame, text="Swap:", style="Header.TLabel").pack(side="left", padx=(0, 8))
+    swap_bar = ProgressBar(swap_frame, width=200, height=22)
+    swap_bar.pack(side="left", padx=(0, 10))
+
+    # --- Disk Card ---
+    disk_card = ttk.LabelFrame(scrollable_frame, text="Disk & I/O", style="Card.TLabelframe", padding=10)
+    disk_card.pack(fill="x", padx=15, pady=(0, 10))
+
+    disk_frame = ttk.Frame(disk_card)
+    disk_frame.pack(fill="x", pady=5)
+    ttk.Label(disk_frame, text="Usage:", style="Header.TLabel").pack(side="left", padx=(0, 8))
+    disk_bar = ProgressBar(disk_frame, width=200, height=22)
+    disk_bar.pack(side="left", padx=(0, 10))
+
+    disk_io_label = ttk.Label(disk_card, text="I/O: --", style="Value.TLabel")
+    disk_io_label.pack(anchor="w", pady=2)
+
+    # --- Network Card ---
+    net_card = ttk.LabelFrame(scrollable_frame, text="Network", style="Card.TLabelframe", padding=10)
+    net_card.pack(fill="x", padx=15, pady=(0, 10))
+
+    net_sent_label = ttk.Label(net_card, text="Sent: --", style="Value.TLabel")
+    net_sent_label.pack(anchor="w", pady=2)
+    net_recv_label = ttk.Label(net_card, text="Received: --", style="Value.TLabel")
+    net_recv_label.pack(anchor="w", pady=2)
+
+    # --- System Card ---
+    sys_card = ttk.LabelFrame(scrollable_frame, text="System", style="Card.TLabelframe", padding=10)
+    sys_card.pack(fill="x", padx=15, pady=(0, 10))
+
+    uptime_label = ttk.Label(sys_card, text="Uptime: --", style="Value.TLabel")
+    uptime_label.pack(anchor="w", pady=2)
+    load_label = ttk.Label(sys_card, text="Load Avg: --", style="Value.TLabel")
+    load_label.pack(anchor="w", pady=2)
+
+    # --- Status Bar ---
+    status = ttk.Label(scrollable_frame, text="Refreshing...", foreground="#4c566a")
+    status.pack(pady=(15, 10), padx=15)
 
     def refresh() -> None:
         try:
             stats = collect_stats(cpu_interval=0.2)
-            labels["cpu_percent"].config(text=f"{stats['cpu']['percent']}%")
-            labels["cpu_freq"].config(text=f"{stats['cpu']['freq_mhz']} MHz")
-
-            temp = stats["cpu"]["temp_c"]
-            labels["cpu_temp"].config(text=f"{temp} C" if temp is not None else "unavailable")
-            labels["cpu_throttle"].config(text=stats["cpu"]["throttled"])
-
-            per_core = ", ".join(f"{x:.1f}%" for x in stats["cpu"]["per_core"])
-            labels["per_core"].config(text=per_core)
-
-            labels["ram"].config(
-                text=(
-                    f"{stats['memory']['used_gb']} / {stats['memory']['total_gb']} GB "
-                    f"({stats['memory']['percent']}%)"
-                )
-            )
-            labels["swap"].config(
-                text=(
-                    f"{stats['swap']['used_gb']} / {stats['swap']['total_gb']} GB "
-                    f"({stats['swap']['percent']}%)"
-                )
-            )
-            labels["disk"].config(
-                text=(
-                    f"{stats['disk']['used_gb']} / {stats['disk']['total_gb']} GB "
-                    f"({stats['disk']['percent']}%)"
-                )
-            )
-            labels["disk_io"].config(
-                text=(
-                    f"Read {stats['disk']['read_mb']} MB, "
-                    f"Write {stats['disk']['write_mb']} MB"
-                )
-            )
-            labels["network"].config(
-                text=(
-                    f"Sent {stats['network']['sent_mb']} MB, "
-                    f"Recv {stats['network']['recv_mb']} MB"
-                )
-            )
-
-            labels["load_avg"].config(text=", ".join(str(x) for x in stats["system"]["load_avg"]))
-            labels["uptime"].config(text=stats["system"]["uptime"])
-            status.config(text=f"Last update: {time.strftime('%H:%M:%S')}", foreground="#a3be8c") # Nord14 green
-        except Exception as exc:  # Keep UI alive even if one sample fails.
-            status.config(text=f"Update failed: {exc}", foreground="#bf616a") # Nord11 red
+            
+            # CPU
+            cpu_bar.set_value(stats['cpu']['percent'])
+            cpu_freq_label.config(text=f"Frequency: {stats['cpu']['freq_mhz']} MHz")
+            temp = stats['cpu']['temp_c']
+            cpu_temp_label.config(text=f"Temperature: {temp} °C" if temp is not None else "Temperature: unavailable")
+            cpu_throttle_label.config(text=f"Throttle: {stats['cpu']['throttled']}")
+            per_core = ", ".join(f"{x:.1f}%" for x in stats['cpu']['per_core'])
+            cpu_percore_label.config(text=f"Per-Core: {per_core}")
+            
+            # Memory
+            ram_bar.set_value(stats['memory']['percent'], f"{stats['memory']['used_gb']}/{stats['memory']['total_gb']} GB")
+            swap_bar.set_value(stats['swap']['percent'], f"{stats['swap']['used_gb']}/{stats['swap']['total_gb']} GB")
+            
+            # Disk
+            disk_bar.set_value(stats['disk']['percent'], f"{stats['disk']['used_gb']}/{stats['disk']['total_gb']} GB")
+            disk_io_label.config(text=f"I/O: Read {stats['disk']['read_mb']} MB, Write {stats['disk']['write_mb']} MB")
+            
+            # Network
+            net_sent_label.config(text=f"Sent: {stats['network']['sent_mb']} MB")
+            net_recv_label.config(text=f"Received: {stats['network']['recv_mb']} MB")
+            
+            # System
+            uptime_label.config(text=f"Uptime: {stats['system']['uptime']}")
+            load_label.config(text=f"Load Avg: {', '.join(str(x) for x in stats['system']['load_avg'])}")
+            
+            status.config(text=f"Last update: {time.strftime('%H:%M:%S')}", foreground="#a3be8c")
+        except Exception as exc:
+            status.config(text=f"Update failed: {exc}", foreground="#bf616a")
         finally:
             root.after(refresh_ms, refresh)
 
